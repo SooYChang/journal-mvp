@@ -1,0 +1,34 @@
+server:
+  port: 8080
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        secure: false
+        same-site: lax
+        path: /
+        name: JSESSIONID
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/journal-mvp;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 27MB
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+app:
+  upload-dir: ${APP_UPLOAD_DIR:./data/uploads}
+  s3:
+    bucket: ${APP_S3_BUCKET:}
+    region: ${APP_S3_REGION:}
+    access-key-id: ${APP_S3_ACCESS_KEY_ID:}
+    secret-access-key: ${APP_S3_SECRET_ACCESS_KEY:}
+  cors:
+    allowed-origins: http://localhost:3000,http://127.0.0.1:3000
