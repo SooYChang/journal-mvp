@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { deleteArticle, getJournal, getJournalArticle } from "@/lib/api/journals";
+import { deleteArticle, downloadJournalPdf, getJournal, getJournalArticle } from "@/lib/api/journals";
 import { doiHref } from "@/lib/doi";
 import type { JournalArticleDetail } from "@/lib/api/types";
 import { errorMessage, formatDate } from "@/lib/utils";
@@ -16,6 +16,7 @@ export default function ArticleDetailPage() {
   const [article, setArticle] = useState<JournalArticleDetail | null>(null);
   const [membershipHref, setMembershipHref] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     void getJournalArticle(params.journalId, Number(params.articleId))
@@ -32,6 +33,20 @@ export default function ArticleDetailPage() {
       })
       .catch(() => setMembershipHref(null));
   }, [params.journalId]);
+
+  async function onDownload() {
+    if (!article) return;
+    setDownloading(true);
+    setError(null);
+    try {
+      const fallback = `${article.title.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim() || "article"}.pdf`;
+      await downloadJournalPdf(article.journalId, article.id, fallback);
+    } catch (err) {
+      setError(errorMessage(err, "Unable to download the PDF."));
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   async function onDelete() {
     if (!window.confirm("Delete this article? It will disappear from public lists.")) return;
@@ -91,11 +106,14 @@ export default function ArticleDetailPage() {
         </div>
         {article.hasPdf ? (
           isAuthenticated ? (
-            <p style={{ marginTop: 16 }}>
+            <div className="cta-row" style={{ marginTop: 16 }}>
               <Link className="button" href={`/journals/${article.journalId}/articles/${article.id}/read`}>
                 Read PDF & annotations
               </Link>
-            </p>
+              <button type="button" className="secondary-button" disabled={downloading} onClick={() => void onDownload()}>
+                {downloading ? "Downloading…" : "Download PDF"}
+              </button>
+            </div>
           ) : (
             <>
               <div className="cta-row" style={{ marginTop: 16 }}>

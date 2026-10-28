@@ -285,7 +285,7 @@ public class ArticleService {
     }
 
     @Transactional(readOnly = true)
-    public ResponseEntity<InputStreamResource> pdf(String journalId, long articleId) {
+    public ResponseEntity<InputStreamResource> pdf(String journalId, long articleId, boolean download) {
         JournalRepository.ArticleRow article = journals.findActiveArticle(journalId, articleId)
                 .orElseThrow(() -> ApiException.notFound("not_found", "Article was not found."));
         journalService.assertArticleIssueVisible(journalId, article.issueId());
@@ -295,7 +295,7 @@ public class ArticleService {
         InputStream stream = objectStorage.get(article.pdfStorageKey());
         long size = objectStorage.size(article.pdfStorageKey());
         String filename = article.pdfOriginalFilename() == null ? "article.pdf" : article.pdfOriginalFilename();
-        ContentDisposition disposition = ContentDisposition.inline()
+        ContentDisposition disposition = (download ? ContentDisposition.attachment() : ContentDisposition.inline())
                 .filename(filename, StandardCharsets.UTF_8)
                 .build();
         return ResponseEntity.ok()

@@ -1,4 +1,5 @@
-import { apiFileUrl, apiRequest } from "./client";
+import { ApiError } from "./errors";
+import { apiFileUrl, apiRequest, getStoredSessionId } from "./client";
 import type {
   ArticleSummary,
   IssueDetail,
@@ -67,6 +68,46 @@ export async function getJournalArticle(journalId: string, articleId: number): P
   return apiRequest<JournalArticleDetail>(
     `/api/journals/${encodeURIComponent(journalId)}/articles/${articleId}`,
   );
+}
+
+export async function downloadJournalPdf(journalId: string, articleId: number, fallbackName: string): Promise<void> {
+  const headers = new Headers({ Accept: "application/pdf" });
+  const sessionId = getStoredSessionId();
+  if (sessionId) {
+    headers.set("X-Auth-Session", sessionId);
+    headers.set("Authorization", `Bearer ${sessionId}`);
+  }
+  const response = await fetch(
+    apiFileUrl(`/api/journals/${encodeURIComponent(journalId)}/articles/${articleId}/pdf?download=true`),
+    { credentials: "include", headers },
+  );
+  if (!response.ok) {
+    throw new ApiError(response.status, "download_failed", "Unable to download the PDF.");
+  }
+  const blob = await response.blob();
+  const filename = filenameFromDisposition(response.headers.get("Content-Disposition")) ?? fallbackName;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function filenameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1]);
+    } catch {
+      return encoded[1];
+    }
+  }
+  const plain = /filename="([^"]+)"/i.exec(header);
+  return plain?.[1] ?? null;
 }
 
 export async function createJournal(form: FormData): Promise<JournalDetail> {

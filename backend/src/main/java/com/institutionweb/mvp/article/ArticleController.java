@@ -43,7 +43,10 @@ public class ArticleController {
     }
 
     @GetMapping("/api/journals/{journalId}/articles/{articleId}/pdf")
-    public ResponseEntity<InputStreamResource> pdf(@PathVariable String journalId, @PathVariable long articleId) {
-        return articles.pdf(journalId, articleId);
+    public ResponseEntity<InputStreamResource> pdf(
+            @PathVariable String journalId,
+            @PathVariable long articleId,
+            @RequestParam(defaultValue = "false") boolean download) {
+        return articles.pdf(journalId, articleId, download);
     }
 }

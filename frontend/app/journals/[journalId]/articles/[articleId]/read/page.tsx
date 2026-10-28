@@ -16,7 +16,7 @@ import {
 } from "@/lib/api/annotations";
 import { apiFileUrl } from "@/lib/api/client";
 import { isApiError } from "@/lib/api/errors";
-import { getJournalArticle } from "@/lib/api/journals";
+import { downloadJournalPdf, getJournalArticle } from "@/lib/api/journals";
 import type { Annotation, JournalArticleDetail } from "@/lib/api/types";
 import { errorMessage } from "@/lib/utils";
 
@@ -95,6 +95,18 @@ function Reader() {
           +
         </button>
         <span className="muted">{pages ? `${pages} pages` : "Loading…"}</span>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => {
+            const fallback = `${(article?.title ?? "article").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim() || "article"}.pdf`;
+            void downloadJournalPdf(params.journalId, Number(params.articleId), fallback).catch((err) => {
+              setPdfError(errorMessage(err, "Unable to download the PDF."));
+            });
+          }}
+        >
+          Download PDF
+        </button>
         {canAnnotate && pending ? (
           <button type="button" className="button" onClick={() => document.getElementById("annotation-note")?.focus()}>
             Add annotation
