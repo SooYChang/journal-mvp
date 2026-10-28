@@ -6,7 +6,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AdminGuard } from "@/components/auth/Guards";
 import { AdminNav } from "@/components/layout/AdminNav";
 import { deleteMember, getMember, updateMember } from "@/lib/api/members";
-import type { AccountStatus, Member, UserRole } from "@/lib/api/types";
+import { ROLE_OPTIONS, membershipRole, type AccountStatus, type Member, type UserRole } from "@/lib/api/types";
 import { errorMessage } from "@/lib/utils";
 
 function MemberDetailInner() {
@@ -79,14 +79,21 @@ function MemberDetailInner() {
             <input value={member.email} readOnly />
           </label>
           <label>
+            Affiliation
+            <input value={member.affiliation || "—"} readOnly />
+          </label>
+          <label>
             Display name
             <input name="displayName" defaultValue={member.displayName} required maxLength={120} />
           </label>
           <label>
             Role
-            <select name="role" defaultValue={member.role}>
-              <option value="MEMBER">MEMBER</option>
-              <option value="SOCIETY_ADMIN">SOCIETY_ADMIN</option>
+            <select name="role" defaultValue={membershipRole(member.role)}>
+              {ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
           <label>

@@ -122,7 +122,7 @@ function NewArticleForm() {
           </label>
           <label>
             DOI
-            <input name="doi" />
+            <input name="doi" placeholder="10.23375/JOSIER.1.1.56594" />
           </label>
           <label>
             Article type

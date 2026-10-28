@@ -159,6 +159,9 @@ function ReviewIssueForm() {
                   {article.pages ? ` · pp. ${article.pages}` : ""}
                   {article.hasPdf ? "" : " · PDF not uploaded yet"}
                 </p>
+                <p style={{ marginTop: 8 }}>
+                  <Link href={`/admin/journals/${params.journalId}/articles/${article.id}/edit`}>Edit article</Link>
+                </p>
               </article>
             ))}
           </div>

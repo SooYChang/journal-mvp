@@ -125,7 +125,7 @@ public class ArticleService {
         } catch (Exception ex) {
             throw ApiException.validation("Published date must be an ISO date.");
         }
-        String resolvedDoi = TextSupport.trimToNull(doi);
+        String resolvedDoi = normalizeDoi(doi);
         if (journals.doiExists(resolvedDoi)) {
             throw ApiException.conflict("duplicate_doi", "This DOI is already registered.");
         }
@@ -187,6 +187,103 @@ public class ArticleService {
                 .orElseThrow(() -> ApiException.storage("The article was stored but could not be reloaded."));
     }
 
+    @Transactional
+    public JournalArticleDetail update(
+            String journalId,
+            long articleId,
+            Long issueId,
+            String title,
+            List<String> authors,
+            String abstractText,
+            List<String> keywords,
+            String pages,
+            String doi,
+            String articleType,
+            String publishedAt,
+            Integer citations,
+            Boolean openAccess,
+            MultipartFile pdf) {
+        journalService.requireJournal(journalId);
+        JournalRepository.ArticleRow existing = journals.findActiveArticle(journalId, articleId)
+                .orElseThrow(() -> ApiException.notFound("not_found", "Article was not found."));
+        if (issueId == null) {
+            throw ApiException.validation("Issue is required.");
+        }
+        journals.findIssue(journalId, issueId)
+                .orElseThrow(() -> ApiException.notFound("not_found", "Issue was not found."));
+        String resolvedTitle = TextSupport.requireText(title, "Title is required.");
+        List<String> resolvedAuthors = requireList(authors, "At least one author is required.");
+        String resolvedAbstract = TextSupport.requireText(abstractText, "Abstract is required.");
+        List<String> resolvedKeywords = keywords == null ? List.of() : keywords.stream()
+                .map(TextSupport::trimToNull)
+                .filter(v -> v != null)
+                .toList();
+        String resolvedType = TextSupport.requireText(articleType, "Article type is required.");
+        LocalDate published;
+        try {
+            published = LocalDate.parse(TextSupport.requireText(publishedAt, "Published date is required."));
+        } catch (Exception ex) {
+            throw ApiException.validation("Published date must be an ISO date.");
+        }
+        String resolvedDoi = normalizeDoi(doi);
+        if (journals.doiExistsForOther(resolvedDoi, articleId)) {
+            throw ApiException.conflict("duplicate_doi", "This DOI is already registered.");
+        }
+        journals.updateArticle(new JournalRepository.ArticleUpdate(
+                articleId,
+                issueId,
+                resolvedTitle,
+                JsonLists.write(objectMapper, resolvedAuthors),
+                resolvedAbstract,
+                JsonLists.write(objectMapper, resolvedKeywords),
+                TextSupport.trimToNull(pages),
+                TextSupport.pageStart(pages),
+                resolvedDoi,
+                resolvedType,
+                published,
+                citations == null ? existing.citations() : Math.max(citations, 0),
+                openAccess == null ? existing.openAccess() : openAccess));
+        if (pdf != null && !pdf.isEmpty()) {
+            replacePdf(existing, pdf);
+        }
+        return journals.findActiveArticle(journalId, articleId)
+                .map(journals::toDetail)
+                .orElseThrow(() -> ApiException.storage("The article was updated but could not be reloaded."));
+    }
+
+    private void replacePdf(JournalRepository.ArticleRow existing, MultipartFile pdf) {
+        FileMagic.requirePdf(pdf);
+        String newKey = "pdfs/" + existing.id() + "/" + UUID.randomUUID() + ".pdf";
+        try (InputStream in = pdf.getInputStream()) {
+            objectStorage.put(newKey, in, pdf.getSize(), "application/pdf");
+        } catch (IOException ex) {
+            throw ApiException.storage("Unable to store the PDF file.");
+        }
+        try {
+            journals.replacePdf(
+                    existing.id(),
+                    newKey,
+                    TextSupport.safeOriginalFilename(pdf.getOriginalFilename()),
+                    "application/pdf",
+                    pdf.getSize(),
+                    Instant.now());
+        } catch (RuntimeException ex) {
+            try {
+                objectStorage.delete(newKey);
+            } catch (RuntimeException ignored) {
+                // The database change is rolled back with the thrown exception.
+            }
+            throw ex;
+        }
+        if (existing.pdfStorageKey() != null && !existing.pdfStorageKey().equals(newKey)) {
+            try {
+                objectStorage.delete(existing.pdfStorageKey());
+            } catch (RuntimeException ignored) {
+                // The new PDF is already saved. A leftover old file can be removed later.
+            }
+        }
+    }
+
     @Transactional(readOnly = true)
     public ResponseEntity<InputStreamResource> pdf(String journalId, long articleId) {
         JournalRepository.ArticleRow article = journals.findActiveArticle(journalId, articleId)
@@ -239,5 +336,15 @@ public class ArticleService {
             throw ApiException.validation(message);
         }
         return cleaned;
+    }
+
+    private static String normalizeDoi(String doi) {
+        String value = TextSupport.trimToNull(doi);
+        if (value == null) {
+            return null;
+        }
+        value = value.replaceFirst("(?i)^https?://(?:dx\\.)?doi\\.org/", "");
+        value = value.replaceFirst("(?i)^doi:\\s*", "");
+        return value;
     }
 }

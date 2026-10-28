@@ -7,6 +7,7 @@ import com.institutionweb.mvp.common.util.TextSupport;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -100,10 +101,16 @@ public class JournalRepository {
                 """
                 INSERT INTO journals (
                     id, name, discipline, description, issn_online, publisher, founded_year, frequency,
-                    aims_and_scope, editor_in_chief, cover_storage_key, cover_content_type, created_at, deleted_at
+                    aims_and_scope, editor_in_chief, editorial_board, contact_email, open_access_note,
+                    publisher_full_name, about_publisher, publisher_city, publisher_contact,
+                    membership_note, membership_email,
+                    cover_storage_key, cover_content_type, created_at, deleted_at
                 ) VALUES (
                     :id, :name, :discipline, :description, :issnOnline, :publisher, :foundedYear, :frequency,
-                    :aimsAndScope, :editorInChief, :coverKey, :coverType, :createdAt, NULL
+                    :aimsAndScope, :editorInChief, :editorialBoard, :contactEmail, :openAccessNote,
+                    :publisherFullName, :aboutPublisher, :publisherCity, :publisherContact,
+                    :membershipNote, :membershipEmail,
+                    :coverKey, :coverType, :createdAt, NULL
                 )
                 """,
                 journalParams(row));
@@ -118,6 +125,35 @@ public class JournalRepository {
                         .addValue("id", id)
                         .addValue("key", key)
                         .addValue("type", contentType));
+    }
+
+    public void updateProfile(JournalRow row) {
+        int updated = jdbc.update(
+                """
+                UPDATE journals
+                SET name = :name,
+                    description = :description,
+                    issn_online = :issnOnline,
+                    publisher = :publisher,
+                    founded_year = :foundedYear,
+                    frequency = :frequency,
+                    aims_and_scope = :aimsAndScope,
+                    editor_in_chief = :editorInChief,
+                    editorial_board = :editorialBoard,
+                    contact_email = :contactEmail,
+                    open_access_note = :openAccessNote,
+                    publisher_full_name = :publisherFullName,
+                    about_publisher = :aboutPublisher,
+                    publisher_city = :publisherCity,
+                    publisher_contact = :publisherContact,
+                    membership_note = :membershipNote,
+                    membership_email = :membershipEmail
+                WHERE id = :id AND deleted_at IS NULL
+                """,
+                journalParams(row));
+        if (updated == 0) {
+            throw com.institutionweb.mvp.common.api.ApiException.notFound("not_found", "Journal was not found.");
+        }
     }
 
     public void deleteJournal(String journalId) {
@@ -305,14 +341,81 @@ public class JournalRepository {
     }
 
     public boolean doiExists(String doi) {
+        return doiExistsForOther(doi, null);
+    }
+
+    public boolean doiExistsForOther(String doi, Long articleId) {
         if (doi == null || doi.isBlank()) {
             return false;
         }
-        Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM journal_articles WHERE doi = :doi",
-                new MapSqlParameterSource("doi", doi),
-                Integer.class);
+        MapSqlParameterSource params = new MapSqlParameterSource("doi", doi);
+        String sql = "SELECT COUNT(*) FROM journal_articles WHERE doi = :doi";
+        if (articleId != null) {
+            sql += " AND id <> :articleId";
+            params.addValue("articleId", articleId);
+        }
+        Integer count = jdbc.queryForObject(sql, params, Integer.class);
         return count != null && count > 0;
+    }
+
+    public void updateArticle(ArticleUpdate update) {
+        int updated = jdbc.update(
+                """
+                UPDATE journal_articles
+                SET issue_id = :issueId,
+                    title = :title,
+                    authors_json = :authors,
+                    abstract_text = :abstractText,
+                    keywords_json = :keywords,
+                    pages = :pages,
+                    page_start = :pageStart,
+                    doi = :doi,
+                    article_type = :articleType,
+                    published_at = :publishedAt,
+                    citations = :citations,
+                    open_access = :openAccess
+                WHERE id = :id AND deleted_at IS NULL
+                """,
+                new MapSqlParameterSource()
+                        .addValue("id", update.id())
+                        .addValue("issueId", update.issueId())
+                        .addValue("title", update.title())
+                        .addValue("authors", update.authorsJson())
+                        .addValue("abstractText", update.abstractText())
+                        .addValue("keywords", update.keywordsJson())
+                        .addValue("pages", update.pages())
+                        .addValue("pageStart", update.pageStart())
+                        .addValue("doi", update.doi())
+                        .addValue("articleType", update.articleType())
+                        .addValue("publishedAt", update.publishedAt())
+                        .addValue("citations", update.citations())
+                        .addValue("openAccess", update.openAccess()));
+        if (updated == 0) {
+            throw com.institutionweb.mvp.common.api.ApiException.notFound("not_found", "Article was not found.");
+        }
+    }
+
+    public void replacePdf(long id, String key, String filename, String contentType, long size, Instant uploadedAt) {
+        int updated = jdbc.update(
+                """
+                UPDATE journal_articles
+                SET pdf_storage_key = :key,
+                    pdf_original_filename = :filename,
+                    pdf_content_type = :contentType,
+                    pdf_size_bytes = :size,
+                    uploaded_at = :uploadedAt
+                WHERE id = :id AND deleted_at IS NULL
+                """,
+                new MapSqlParameterSource()
+                        .addValue("id", id)
+                        .addValue("key", key)
+                        .addValue("filename", filename)
+                        .addValue("contentType", contentType)
+                        .addValue("size", size)
+                        .addValue("uploadedAt", Timestamp.from(uploadedAt)));
+        if (updated == 0) {
+            throw com.institutionweb.mvp.common.api.ApiException.notFound("not_found", "Article was not found.");
+        }
     }
 
     public void deleteArticleRow(long id) {
@@ -437,6 +540,15 @@ public class JournalRepository {
                 rs.getString("frequency"),
                 rs.getString("aims_and_scope"),
                 rs.getString("editor_in_chief"),
+                rs.getString("editorial_board"),
+                rs.getString("contact_email"),
+                rs.getString("open_access_note"),
+                rs.getString("publisher_full_name"),
+                rs.getString("about_publisher"),
+                rs.getString("publisher_city"),
+                rs.getString("publisher_contact"),
+                rs.getString("membership_note"),
+                rs.getString("membership_email"),
                 rs.getString("cover_storage_key"),
                 rs.getString("cover_content_type"),
                 instant(rs, "created_at"));
@@ -487,6 +599,15 @@ public class JournalRepository {
                 .addValue("frequency", row.frequency())
                 .addValue("aimsAndScope", row.aimsAndScope())
                 .addValue("editorInChief", row.editorInChief())
+                .addValue("editorialBoard", row.editorialBoard(), Types.VARCHAR)
+                .addValue("contactEmail", row.contactEmail(), Types.VARCHAR)
+                .addValue("openAccessNote", row.openAccessNote(), Types.VARCHAR)
+                .addValue("publisherFullName", row.publisherFullName(), Types.VARCHAR)
+                .addValue("aboutPublisher", row.aboutPublisher(), Types.VARCHAR)
+                .addValue("publisherCity", row.publisherCity(), Types.VARCHAR)
+                .addValue("publisherContact", row.publisherContact(), Types.VARCHAR)
+                .addValue("membershipNote", row.membershipNote(), Types.VARCHAR)
+                .addValue("membershipEmail", row.membershipEmail(), Types.VARCHAR)
                 .addValue("coverKey", row.coverStorageKey())
                 .addValue("coverType", row.coverContentType())
                 .addValue("createdAt", Timestamp.from(row.createdAt()));
@@ -508,6 +629,15 @@ public class JournalRepository {
             String frequency,
             String aimsAndScope,
             String editorInChief,
+            String editorialBoard,
+            String contactEmail,
+            String openAccessNote,
+            String publisherFullName,
+            String aboutPublisher,
+            String publisherCity,
+            String publisherContact,
+            String membershipNote,
+            String membershipEmail,
             String coverStorageKey,
             String coverContentType,
             Instant createdAt) {}
@@ -562,4 +692,19 @@ public class JournalRepository {
             long pdfSizeBytes,
             Instant uploadedAt,
             Instant createdAt) {}
+
+    public record ArticleUpdate(
+            long id,
+            long issueId,
+            String title,
+            String authorsJson,
+            String abstractText,
+            String keywordsJson,
+            String pages,
+            Integer pageStart,
+            String doi,
+            String articleType,
+            LocalDate publishedAt,
+            int citations,
+            boolean openAccess) {}
 }

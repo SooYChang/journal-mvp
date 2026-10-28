@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AdminGuard } from "@/components/auth/Guards";
 import { AdminNav } from "@/components/layout/AdminNav";
 import { createMember } from "@/lib/api/members";
-import type { UserRole } from "@/lib/api/types";
+import { ROLE_OPTIONS, type UserRole } from "@/lib/api/types";
 import { errorMessage } from "@/lib/utils";
 
 function NewMemberForm() {
@@ -63,9 +63,12 @@ function NewMemberForm() {
           </label>
           <label>
             Role
-            <select name="role" defaultValue="MEMBER">
-              <option value="MEMBER">MEMBER</option>
-              <option value="SOCIETY_ADMIN">SOCIETY_ADMIN</option>
+            <select name="role" defaultValue="READER">
+              {ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
           {error ? <p className="error-text">{error}</p> : null}

@@ -66,6 +66,7 @@ public class AnnotationService {
     public AnnotationDto create(String journalId, long articleId, CreateRequest request) {
         requireArticle(journalId, articleId);
         SessionUser current = AuthService.currentUser();
+        requireAnnotator(current);
         validateCreate(request);
         Instant now = Instant.now();
         GeneratedKeyHolder keys = new GeneratedKeyHolder();
@@ -101,7 +102,7 @@ public class AnnotationService {
         String body = existing.body();
         String status = existing.status();
         if (request.body() != null) {
-            if (!author) {
+            if (!author || !current.canAnnotate()) {
                 throw ApiException.forbidden("Only the author can edit annotation text.");
             }
             String trimmed = request.body().trim();
@@ -137,7 +138,8 @@ public class AnnotationService {
     public void delete(String journalId, long articleId, long annotationId) {
         AnnotationRow existing = requireOwnedAnnotation(journalId, articleId, annotationId);
         SessionUser current = AuthService.currentUser();
-        if (existing.authorUserId() != current.id() && !current.isAdmin()) {
+        boolean ownNote = existing.authorUserId() == current.id() && current.canAnnotate();
+        if (!ownNote && !current.isAdmin()) {
             throw ApiException.forbidden("You cannot delete this annotation.");
         }
         jdbc.update(
@@ -150,6 +152,7 @@ public class AnnotationService {
     public AnnotationDto.ReplyDto reply(String journalId, long articleId, long annotationId, ReplyRequest request) {
         requireOwnedAnnotation(journalId, articleId, annotationId);
         SessionUser current = AuthService.currentUser();
+        requireAnnotator(current);
         if (request == null || request.body() == null || request.body().trim().isEmpty() || request.body().trim().length() > 3000) {
             throw ApiException.validation("Reply body must be 1 to 3000 characters.");
         }
@@ -294,6 +297,12 @@ public class AnnotationService {
         return map;
     }
 
+    private static void requireAnnotator(SessionUser current) {
+        if (!current.canAnnotate()) {
+            throw ApiException.forbidden("Only annotators can write annotations.");
+        }
+    }
+
     private AnnotationDto toDto(AnnotationRow row, List<AnnotationDto.ReplyDto> replies, SessionUser current) {
         boolean author = row.authorUserId() == current.id();
         return new AnnotationDto(
@@ -307,7 +316,7 @@ public class AnnotationService {
                 row.status(),
                 row.createdAt(),
                 row.updatedAt(),
-                author,
+                author && current.canAnnotate(),
                 current.isAdmin(),
                 replies);
     }

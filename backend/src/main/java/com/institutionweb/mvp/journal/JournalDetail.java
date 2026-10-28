@@ -14,4 +14,13 @@ public record JournalDetail(
         String coverUrl,
         String aimsAndScope,
         String editorInChief,
+        String editorialBoard,
+        String contactEmail,
+        String openAccessNote,
+        String publisherFullName,
+        String aboutPublisher,
+        String publisherCity,
+        String publisherContact,
+        String membershipNote,
+        String membershipEmail,
         List<IssueSummary> issues) {}

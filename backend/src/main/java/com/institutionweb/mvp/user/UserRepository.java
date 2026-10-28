@@ -1,6 +1,7 @@
 package com.institutionweb.mvp.user;
 
 import java.sql.ResultSet;
+import java.sql.Types;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -29,7 +30,11 @@ public class UserRepository {
 
     public Optional<UserRecord> findByEmailIgnoreCase(String email) {
         List<UserRecord> rows = jdbc.query(
-                "SELECT * FROM users WHERE LOWER(email) = LOWER(:email)",
+                """
+                SELECT * FROM users
+                WHERE LOWER(email) = LOWER(:email)
+                ORDER BY CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END, id DESC
+                """,
                 new MapSqlParameterSource("email", email),
                 (rs, rowNum) -> map(rs));
         return rows.stream().findFirst();
@@ -37,7 +42,10 @@ public class UserRepository {
 
     public boolean existsByEmailIgnoreCase(String email) {
         Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM users WHERE LOWER(email) = LOWER(:email)",
+                """
+                SELECT COUNT(*) FROM users
+                WHERE LOWER(email) = LOWER(:email) AND deleted_at IS NULL
+                """,
                 new MapSqlParameterSource("email", email),
                 Integer.class);
         return count != null && count > 0;
@@ -55,16 +63,26 @@ public class UserRepository {
     }
 
     public UserRecord insert(
-            String email, String displayName, String passwordHash, String role, String status, Instant now) {
+            String email,
+            String displayName,
+            String affiliation,
+            String passwordHash,
+            String role,
+            String status,
+            Instant now) {
         GeneratedKeyHolder keys = new GeneratedKeyHolder();
         jdbc.update(
                 """
-                INSERT INTO users (email, display_name, password_hash, role, status, created_at, updated_at, deleted_at)
-                VALUES (:email, :displayName, :passwordHash, :role, :status, :now, :now, NULL)
+                INSERT INTO users (
+                    email, display_name, affiliation, password_hash, role, status, created_at, updated_at, deleted_at
+                ) VALUES (
+                    :email, :displayName, :affiliation, :passwordHash, :role, :status, :now, :now, NULL
+                )
                 """,
                 new MapSqlParameterSource()
                         .addValue("email", email)
                         .addValue("displayName", displayName)
+                        .addValue("affiliation", affiliation, Types.VARCHAR)
                         .addValue("passwordHash", passwordHash)
                         .addValue("role", role)
                         .addValue("status", status)
@@ -142,7 +160,7 @@ public class UserRepository {
     private String memberWhere(String query, String status) {
         StringBuilder sql = new StringBuilder();
         if (query != null && !query.isBlank()) {
-            sql.append(" AND (LOWER(email) LIKE :query OR LOWER(display_name) LIKE :query)");
+            sql.append(" AND (LOWER(email) LIKE :query OR LOWER(display_name) LIKE :query OR LOWER(affiliation) LIKE :query)");
         }
         if (status != null && !status.isBlank()) {
             sql.append(" AND status = :status");
@@ -155,6 +173,7 @@ public class UserRepository {
                 rs.getLong("id"),
                 rs.getString("email"),
                 rs.getString("display_name"),
+                rs.getString("affiliation"),
                 rs.getString("password_hash"),
                 rs.getString("role"),
                 rs.getString("status"),

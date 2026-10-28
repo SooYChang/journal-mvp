@@ -50,6 +50,10 @@ public class SessionUser implements UserDetails {
         return "SOCIETY_ADMIN".equals(role);
     }
 
+    public boolean canAnnotate() {
+        return isAdmin() || "ANNOTATOR".equals(role) || "MEMBER".equals(role);
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role));

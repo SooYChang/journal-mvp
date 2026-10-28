@@ -1,13 +1,16 @@
 import Link from "next/link";
 import type { ArticleSummary } from "@/lib/api/types";
+import { doiHref } from "@/lib/doi";
 import { formatDate } from "@/lib/utils";
 
 export function ArticleResultCard({
   article,
   showJournal = true,
+  canEdit = false,
 }: {
   article: ArticleSummary;
   showJournal?: boolean;
+  canEdit?: boolean;
 }) {
   return (
     <article className="article-card">
@@ -27,7 +30,17 @@ export function ArticleResultCard({
       </p>
       <p className="serif">{article.abstractPreview}</p>
       <p className="muted" style={{ overflowWrap: "anywhere" }}>
-        {article.doi ? `DOI ${article.doi}` : "No DOI"} · {article.citations} citations
+        {article.doi ? (
+          <>
+            DOI{" "}
+            <a href={doiHref(article.doi)} target="_blank" rel="noreferrer">
+              {article.doi}
+            </a>
+          </>
+        ) : (
+          "No DOI"
+        )}{" "}
+        · {article.citations} citations
       </p>
       <div className="chip-row">
         {article.keywords.map((keyword) => (
@@ -40,8 +53,11 @@ export function ArticleResultCard({
           {article.hasPdf ? "PDF available" : "PDF unavailable"}
         </span>
       </div>
-      <p style={{ marginTop: 12 }}>
+      <p className="cta-row" style={{ marginTop: 12 }}>
         <Link href={`/journals/${article.journalId}/articles/${article.id}`}>View article</Link>
+        {canEdit ? (
+          <Link href={`/admin/journals/${article.journalId}/articles/${article.id}/edit`}>Edit article</Link>
+        ) : null}
       </p>
     </article>
   );

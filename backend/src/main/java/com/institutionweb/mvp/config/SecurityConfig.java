@@ -1,12 +1,16 @@
 package com.institutionweb.mvp.config;
 
+import com.institutionweb.mvp.auth.SessionAuthStore;
+import com.institutionweb.mvp.auth.SessionUserDetailsService;
 import com.institutionweb.mvp.common.api.ApiError;
 import com.institutionweb.mvp.common.web.CsrfCookieFilter;
+import com.institutionweb.mvp.common.web.SessionHeaderAuthenticationFilter;
 import com.institutionweb.mvp.common.web.SpaCsrfTokenRequestHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,6 +26,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -45,7 +50,22 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SessionHeaderAuthenticationFilter sessionHeaderAuthenticationFilter(
+            SessionAuthStore store, SessionUserDetailsService userDetailsService) {
+        return new SessionHeaderAuthenticationFilter(store, userDetailsService);
+    }
+
+    @Bean
+    public FilterRegistrationBean<SessionHeaderAuthenticationFilter> sessionHeaderAuthenticationFilterRegistration(
+            SessionHeaderAuthenticationFilter filter) {
+        FilterRegistrationBean<SessionHeaderAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http, SessionHeaderAuthenticationFilter sessionHeaderAuthenticationFilter) throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepository.setCookiePath("/");
         csrfRepository.setHeaderName("X-XSRF-TOKEN");
@@ -53,7 +73,7 @@ public class SecurityConfig {
 
         http.csrf(csrf -> csrf.csrfTokenRepository(csrfRepository)
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
-                        .ignoringRequestMatchers(new AntPathRequestMatcher("/api/auth/login", "POST")))
+                        .ignoringRequestMatchers(new AntPathRequestMatcher("/api/**")))
                 .cors(Customizer.withDefaults())
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())
@@ -63,6 +83,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
                         .requestMatchers("/api/health", "/api/auth/login")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register")
                         .permitAll()
                         .requestMatchers(
                                 "/api/journals/*/articles/*/pdf",
@@ -79,6 +101,7 @@ public class SecurityConfig {
                         .authenticated()
                         .anyRequest()
                         .denyAll())
+                .addFilterAfter(sessionHeaderAuthenticationFilter, SecurityContextHolderFilter.class)
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
 
         return http.build();

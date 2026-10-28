@@ -6,6 +6,7 @@ import type {
   JournalArticleDetail,
   JournalArticleFilterOptions,
   JournalDetail,
+  JournalProfileUpdate,
   JournalSummary,
   PageResponse,
 } from "./types";
@@ -95,6 +96,16 @@ export async function publishIssue(journalId: string, issueId: number): Promise<
   );
 }
 
+export async function updateJournalProfile(
+  journalId: string,
+  profile: JournalProfileUpdate,
+): Promise<JournalDetail> {
+  return apiRequest<JournalDetail>(`/api/admin/journals/${encodeURIComponent(journalId)}`, {
+    method: "PATCH",
+    json: profile,
+  });
+}
+
 export async function deleteJournal(journalId: string): Promise<void> {
   await apiRequest<{ status: string }>(`/api/admin/journals/${encodeURIComponent(journalId)}`, {
     method: "DELETE",
@@ -113,4 +124,15 @@ export async function uploadArticle(journalId: string, form: FormData): Promise<
     method: "POST",
     body: form,
   });
+}
+
+export async function updateArticle(
+  journalId: string,
+  articleId: number,
+  form: FormData,
+): Promise<JournalArticleDetail> {
+  return apiRequest<JournalArticleDetail>(
+    `/api/admin/journals/${encodeURIComponent(journalId)}/articles/${articleId}`,
+    { method: "POST", body: form },
+  );
 }

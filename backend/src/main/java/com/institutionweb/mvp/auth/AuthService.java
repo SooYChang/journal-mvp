@@ -18,12 +18,17 @@ public class AuthService {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final SessionUserDetailsService userDetailsService;
+    private final SessionAuthStore sessionAuthStore;
 
     public AuthService(
-            UserRepository users, PasswordEncoder passwordEncoder, SessionUserDetailsService userDetailsService) {
+            UserRepository users,
+            PasswordEncoder passwordEncoder,
+            SessionUserDetailsService userDetailsService,
+            SessionAuthStore sessionAuthStore) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.userDetailsService = userDetailsService;
+        this.sessionAuthStore = sessionAuthStore;
     }
 
     @Transactional(readOnly = true)
@@ -48,10 +53,12 @@ public class AuthService {
 
         HttpSession old = httpRequest.getSession(false);
         if (old != null) {
+            sessionAuthStore.remove(old.getId());
             old.invalidate();
         }
         HttpSession session = httpRequest.getSession(true);
         session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
+        sessionAuthStore.put(session.getId(), principal.id());
         return principal.toDto();
     }
 
@@ -62,8 +69,10 @@ public class AuthService {
     }
 
     public void logout(HttpServletRequest request) {
+        sessionAuthStore.remove(request.getHeader("X-Auth-Session"));
         HttpSession session = request.getSession(false);
         if (session != null) {
+            sessionAuthStore.remove(session.getId());
             session.invalidate();
         }
         SecurityContextHolder.clearContext();

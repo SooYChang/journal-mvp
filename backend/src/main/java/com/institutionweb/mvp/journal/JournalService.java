@@ -65,6 +65,15 @@ public class JournalService {
                 JournalRepository.coverUrl(row.id(), row.coverStorageKey()),
                 row.aimsAndScope(),
                 row.editorInChief(),
+                row.editorialBoard(),
+                row.contactEmail(),
+                row.openAccessNote(),
+                row.publisherFullName(),
+                row.aboutPublisher(),
+                row.publisherCity(),
+                row.publisherContact(),
+                row.membershipNote(),
+                row.membershipEmail(),
                 journals.listIssues(journalId, AuthService.isCurrentAdmin()));
     }
 
@@ -187,6 +196,15 @@ public class JournalService {
                     TextSupport.requireText(frequency, "Frequency is required."),
                     TextSupport.requireText(aimsAndScope, "Aims and scope are required."),
                     TextSupport.requireText(editorInChief, "Editor-in-chief is required."),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
                     key,
                     cover.getContentType(),
                     now));
@@ -195,6 +213,69 @@ public class JournalService {
             throw ex;
         }
         return get(id);
+    }
+
+    @Transactional
+    public JournalDetail updateProfile(String journalId, JournalProfileUpdate request) {
+        AuthService.currentAdmin();
+        JournalRepository.JournalRow current = requireJournal(journalId);
+        String issn = TextSupport.requireText(request.issnOnline(), "e-ISSN is required.").toUpperCase();
+        if (!issn.matches("\\d{4}-\\d{3}[\\dX]")) {
+            throw ApiException.validation("e-ISSN must look like 3091-8960.");
+        }
+        if (request.foundedYear() == null || request.foundedYear() < 1800 || request.foundedYear() > 2100) {
+            throw ApiException.validation("Founded year must be between 1800 and 2100.");
+        }
+        journals.updateProfile(new JournalRepository.JournalRow(
+                current.id(),
+                limit(TextSupport.requireText(request.name(), "Journal name is required."), 255, "Journal name"),
+                current.discipline(),
+                limit(TextSupport.requireText(request.description(), "Description is required."), 8000, "Description"),
+                issn,
+                limit(TextSupport.requireText(request.publisher(), "Publisher is required."), 255, "Publisher"),
+                request.foundedYear(),
+                limit(TextSupport.requireText(request.frequency(), "Frequency is required."), 64, "Frequency"),
+                limit(TextSupport.requireText(request.aimsAndScope(), "Aims and scope are required."), 8000, "Aims and scope"),
+                limit(TextSupport.requireText(request.editorInChief(), "Editor-in-chief is required."), 255, "Editor-in-chief"),
+                optional(request.editorialBoard(), 8000, "Editorial board"),
+                optionalEmail(request.contactEmail(), "Journal contact"),
+                optional(request.openAccessNote(), 2000, "Open-access note"),
+                optional(request.publisherFullName(), 255, "Publisher full name"),
+                optional(request.aboutPublisher(), 8000, "About the publisher"),
+                optional(request.publisherCity(), 120, "City"),
+                optional(request.publisherContact(), 255, "Publisher contact"),
+                optional(request.membershipNote(), 8000, "Membership instructions"),
+                optionalEmail(request.membershipEmail(), "Membership application email"),
+                current.coverStorageKey(),
+                current.coverContentType(),
+                current.createdAt()));
+        return get(journalId);
+    }
+
+    private static String limit(String value, int max, String label) {
+        if (value.length() > max) {
+            throw ApiException.validation(label + " must be " + max + " characters or fewer.");
+        }
+        return value;
+    }
+
+    private static String optional(String value, int max, String label) {
+        String trimmed = TextSupport.trimToNull(value);
+        if (trimmed == null) {
+            return null;
+        }
+        return limit(trimmed, max, label);
+    }
+
+    private static String optionalEmail(String value, String label) {
+        String trimmed = optional(value, 255, label);
+        if (trimmed == null) {
+            return null;
+        }
+        if (!trimmed.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw ApiException.validation(label + " must be an email address.");
+        }
+        return trimmed;
     }
 
     @Transactional

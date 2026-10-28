@@ -6,7 +6,7 @@ import { AdminGuard } from "@/components/auth/Guards";
 import { AdminNav } from "@/components/layout/AdminNav";
 import { Pagination } from "@/components/articles/Pagination";
 import { listMembers } from "@/lib/api/members";
-import type { Member, PageResponse } from "@/lib/api/types";
+import { roleLabel, type Member, type PageResponse } from "@/lib/api/types";
 import { errorMessage, formatDate } from "@/lib/utils";
 
 function MembersTable() {
@@ -37,7 +37,7 @@ function MembersTable() {
       <div className="cta-row" style={{ justifyContent: "space-between" }}>
         <div>
           <h1 className="page-title">Members</h1>
-          <p className="lede">Register accounts directly. There is no public signup.</p>
+          <p className="lede">Readers can register themselves. You can still create accounts, grant Annotator membership, or delete an account.</p>
         </div>
         <Link className="button" href="/admin/members/new">
           Register member
@@ -69,6 +69,7 @@ function MembersTable() {
                 <tr>
                   <th>Member</th>
                   <th>Email</th>
+                  <th>Affiliation</th>
                   <th>Role</th>
                   <th>Status</th>
                   <th>Created</th>
@@ -80,7 +81,8 @@ function MembersTable() {
                   <tr key={member.id}>
                     <td>{member.displayName}</td>
                     <td style={{ overflowWrap: "anywhere" }}>{member.email}</td>
-                    <td>{member.role}</td>
+                    <td>{member.affiliation || "—"}</td>
+                    <td>{roleLabel(member.role)}</td>
                     <td>{member.status}</td>
                     <td>{formatDate(member.createdAt)}</td>
                     <td>
@@ -97,9 +99,10 @@ function MembersTable() {
                 <strong>{member.displayName}</strong>
                 <p className="muted" style={{ overflowWrap: "anywhere" }}>
                   {member.email}
+                  {member.affiliation ? ` · ${member.affiliation}` : ""}
                 </p>
                 <p>
-                  {member.role} · {member.status}
+                  {roleLabel(member.role)} · {member.status}
                 </p>
                 <Link href={`/admin/members/${member.id}`}>Manage</Link>
               </article>

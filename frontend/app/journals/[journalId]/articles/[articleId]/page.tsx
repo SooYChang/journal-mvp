@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { deleteArticle, getJournalArticle } from "@/lib/api/journals";
+import { deleteArticle, getJournal, getJournalArticle } from "@/lib/api/journals";
+import { doiHref } from "@/lib/doi";
 import type { JournalArticleDetail } from "@/lib/api/types";
 import { errorMessage, formatDate } from "@/lib/utils";
 
@@ -13,6 +14,7 @@ export default function ArticleDetailPage() {
   const router = useRouter();
   const { isAuthenticated, isAdmin } = useAuth();
   const [article, setArticle] = useState<JournalArticleDetail | null>(null);
+  const [membershipHref, setMembershipHref] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -20,6 +22,16 @@ export default function ArticleDetailPage() {
       .then(setArticle)
       .catch((err) => setError(errorMessage(err, "Article was not found.")));
   }, [params.journalId, params.articleId]);
+
+  useEffect(() => {
+    void getJournal(params.journalId)
+      .then((journal) => {
+        setMembershipHref(
+          journal.membershipEmail || journal.membershipNote ? `/journals/${journal.id}#membership` : null,
+        );
+      })
+      .catch(() => setMembershipHref(null));
+  }, [params.journalId]);
 
   async function onDelete() {
     if (!window.confirm("Delete this article? It will disappear from public lists.")) return;
@@ -45,8 +57,6 @@ export default function ArticleDetailPage() {
   return (
     <div>
       <nav className="breadcrumb">
-        <Link href="/journals">Journals</Link>
-        <span>/</span>
         <Link href={`/journals/${article.journalId}`}>{article.journalName}</Link>
         <span>/</span>
         <span>{article.title}</span>
@@ -60,7 +70,17 @@ export default function ArticleDetailPage() {
           {article.pages ? ` · pp. ${article.pages}` : ""}
         </p>
         <p className="muted" style={{ overflowWrap: "anywhere" }}>
-          {article.doi ? `DOI ${article.doi}` : "No DOI"} · {article.citations} citations
+          {article.doi ? (
+            <>
+              DOI{" "}
+              <a href={doiHref(article.doi)} target="_blank" rel="noreferrer">
+                {article.doi}
+              </a>
+            </>
+          ) : (
+            "No DOI"
+          )}{" "}
+          · {article.citations} citations
         </p>
         <div className="chip-row">
           {article.keywords.map((keyword) => (
@@ -77,21 +97,40 @@ export default function ArticleDetailPage() {
               </Link>
             </p>
           ) : (
-            <p style={{ marginTop: 16 }}>
-              <Link href={`/login?returnTo=${encodeURIComponent(`/journals/${article.journalId}/articles/${article.id}/read`)}`}>
-                Log in to read the PDF and annotations
-              </Link>
-            </p>
+            <>
+              <div className="cta-row" style={{ marginTop: 16 }}>
+                <Link
+                  className="button"
+                  href={`/join?returnTo=${encodeURIComponent(`/journals/${article.journalId}/articles/${article.id}/read`)}`}
+                >
+                  Register to read the PDF
+                </Link>
+                <Link
+                  className="secondary-button"
+                  href={`/login?returnTo=${encodeURIComponent(`/journals/${article.journalId}/articles/${article.id}/read`)}`}
+                >
+                  Log in
+                </Link>
+              </div>
+              {membershipHref ? (
+                <p className="muted">
+                  To write notes, request Annotator membership. See <Link href={membershipHref}>Membership</Link>.
+                </p>
+              ) : null}
+            </>
           )
         ) : (
           <p className="muted">PDF not uploaded yet</p>
         )}
         {isAdmin ? (
-          <p style={{ marginTop: 16 }}>
+          <div className="cta-row" style={{ marginTop: 16 }}>
+            <Link className="secondary-button" href={`/admin/journals/${article.journalId}/articles/${article.id}/edit`}>
+              Edit article
+            </Link>
             <button type="button" className="danger-button" onClick={() => void onDelete()}>
               Delete article
             </button>
-          </p>
+          </div>
         ) : null}
         {error ? <p className="error-text">{error}</p> : null}
       </section>

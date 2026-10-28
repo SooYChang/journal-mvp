@@ -65,8 +65,8 @@ function NewJournalForm() {
             <textarea name="description" required />
           </label>
           <label>
-            ISSN online
-            <input name="issnOnline" required />
+            e-ISSN
+            <input name="issnOnline" placeholder="3091-8960" required />
           </label>
           <label>
             Publisher

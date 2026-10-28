@@ -10,8 +10,10 @@ import java.util.Map;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -54,6 +56,11 @@ public class AdminJournalController {
                 aimsAndScope,
                 editorInChief,
                 cover);
+    }
+
+    @PatchMapping("/api/admin/journals/{journalId}")
+    public JournalDetail updateProfile(@PathVariable String journalId, @RequestBody JournalProfileUpdate request) {
+        return journals.updateProfile(journalId, request);
     }
 
     @PostMapping("/api/admin/journals/{journalId}/issues")
@@ -109,6 +116,48 @@ public class AdminJournalController {
         List<String> resolvedKeywords = ArticleService.parseList(objectMapper, keywords, null);
         return articles.upload(
                 journalId,
+                issueId,
+                title,
+                resolvedAuthors,
+                abstractText,
+                resolvedKeywords,
+                pages,
+                doi,
+                articleType,
+                publishedAt,
+                citations,
+                openAccess,
+                pdf);
+    }
+
+    @PostMapping(
+            path = "/api/admin/journals/{journalId}/articles/{articleId}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public JournalArticleDetail updateArticle(
+            @PathVariable String journalId,
+            @PathVariable long articleId,
+            @RequestParam Long issueId,
+            @RequestParam String title,
+            @RequestParam(required = false) String authors,
+            @RequestParam(required = false) List<String> authorsList,
+            @RequestParam String abstractText,
+            @RequestParam(required = false) String keywords,
+            @RequestParam(required = false) String pages,
+            @RequestParam(required = false) String doi,
+            @RequestParam String articleType,
+            @RequestParam String publishedAt,
+            @RequestParam(required = false) Integer citations,
+            @RequestParam(required = false) Boolean openAccess,
+            @RequestPart(value = "pdf", required = false) MultipartFile pdf) {
+        List<String> resolvedAuthors = new ArrayList<>();
+        if (authorsList != null) {
+            resolvedAuthors.addAll(authorsList);
+        }
+        resolvedAuthors.addAll(ArticleService.parseList(objectMapper, authors, null));
+        List<String> resolvedKeywords = ArticleService.parseList(objectMapper, keywords, null);
+        return articles.update(
+                journalId,
+                articleId,
                 issueId,
                 title,
                 resolvedAuthors,

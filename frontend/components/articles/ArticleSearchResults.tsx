@@ -9,6 +9,7 @@ export function ArticleSearchResults({
   loading,
   error,
   showJournal,
+  canEdit = false,
   onRetry,
   onPageChange,
 }: {
@@ -16,6 +17,7 @@ export function ArticleSearchResults({
   loading: boolean;
   error: string | null;
   showJournal?: boolean;
+  canEdit?: boolean;
   onRetry: () => void;
   onPageChange: (page: number) => void;
 }) {
@@ -59,7 +61,7 @@ export function ArticleSearchResults({
       </p>
       <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
         {page.content.map((article) => (
-          <ArticleResultCard key={article.id} article={article} showJournal={showJournal} />
+          <ArticleResultCard key={article.id} article={article} showJournal={showJournal} canEdit={canEdit} />
         ))}
       </div>
       <Pagination page={page.page} totalPages={page.totalPages} onChange={onPageChange} />

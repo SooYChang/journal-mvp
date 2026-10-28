@@ -17,6 +17,7 @@ export function AnnotationSidebar({
   onResolve,
   selectedText,
   creating,
+  canAnnotate,
 }: {
   annotations: Annotation[];
   error: string | null;
@@ -30,6 +31,7 @@ export function AnnotationSidebar({
   onResolve: (id: number, status: "OPEN" | "RESOLVED") => Promise<void>;
   selectedText: string;
   creating: boolean;
+  canAnnotate: boolean;
 }) {
   const [body, setBody] = useState("");
   const visible = useMemo(
@@ -56,7 +58,7 @@ export function AnnotationSidebar({
         </select>
       </label>
       {error ? <p className="error-text">{error}</p> : null}
-      {selectedText ? (
+      {canAnnotate && selectedText ? (
         <form onSubmit={(event) => void submit(event)} className="form-grid">
           <p className="serif">{selectedText}</p>
           <label>
@@ -67,8 +69,10 @@ export function AnnotationSidebar({
             {creating ? "Saving…" : "Add annotation"}
           </button>
         </form>
-      ) : (
+      ) : canAnnotate ? (
         <p className="muted">Select PDF text to add an annotation.</p>
+      ) : (
+        <p className="muted">You can read annotations. Writing notes requires an annotator account.</p>
       )}
       {visible.length === 0 ? <p className="muted">No annotations in this view.</p> : null}
       <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
@@ -81,6 +85,7 @@ export function AnnotationSidebar({
             onEdit={onEdit}
             onDelete={onDelete}
             onResolve={onResolve}
+            canAnnotate={canAnnotate}
           />
         ))}
       </div>
@@ -95,6 +100,7 @@ function AnnotationCard({
   onEdit,
   onDelete,
   onResolve,
+  canAnnotate,
 }: {
   annotation: Annotation;
   onSelect: () => void;
@@ -102,6 +108,7 @@ function AnnotationCard({
   onEdit: (id: number, body: string) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
   onResolve: (id: number, status: "OPEN" | "RESOLVED") => Promise<void>;
+  canAnnotate: boolean;
 }) {
   const [reply, setReply] = useState("");
   const [editing, setEditing] = useState(false);
@@ -155,18 +162,20 @@ function AnnotationCard({
           {item.author.displayName}: {item.body}
         </p>
       ))}
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!reply.trim()) return;
-          void onReply(annotation.id, reply.trim()).then(() => setReply(""));
-        }}
-      >
-        <label>
-          Reply
-          <input value={reply} onChange={(event) => setReply(event.target.value)} maxLength={3000} />
-        </label>
-      </form>
+      {canAnnotate ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!reply.trim()) return;
+            void onReply(annotation.id, reply.trim()).then(() => setReply(""));
+          }}
+        >
+          <label>
+            Reply
+            <input value={reply} onChange={(event) => setReply(event.target.value)} maxLength={3000} />
+          </label>
+        </form>
+      ) : null}
     </article>
   );
 }

@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { MemberGuard } from "@/components/auth/Guards";
 import { AnnotationSidebar } from "@/components/pdf/AnnotationSidebar";
-import { PdfPages, selectionToPosition } from "@/components/pdf/PdfPages";
+import { PdfPages, selectionToPosition, type PositionData } from "@/components/pdf/PdfPages";
 import {
   createAnnotation,
   deleteAnnotation,
@@ -21,6 +22,7 @@ import { errorMessage } from "@/lib/utils";
 
 function Reader() {
   const params = useParams<{ journalId: string; articleId: string }>();
+  const { canAnnotate } = useAuth();
   const [article, setArticle] = useState<JournalArticleDetail | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [zoom, setZoom] = useState(100);
@@ -53,6 +55,7 @@ function Reader() {
   }, [params.journalId, params.articleId, refresh]);
 
   function captureSelection(container: HTMLElement) {
+    if (!canAnnotate) return;
     const captured = selectionToPosition(container);
     if (!captured) return;
     setSelectedText(captured.text);
@@ -92,7 +95,7 @@ function Reader() {
           +
         </button>
         <span className="muted">{pages ? `${pages} pages` : "Loading…"}</span>
-        {pending ? (
+        {canAnnotate && pending ? (
           <button type="button" className="button" onClick={() => document.getElementById("annotation-note")?.focus()}>
             Add annotation
           </button>
@@ -115,6 +118,7 @@ function Reader() {
               zoom={zoom}
               annotations={annotations}
               activeId={activeId}
+              pending={pendingPosition(pending)}
               onReady={setPages}
               onError={(message) => setPdfError(normalizePdfError(message))}
             />
@@ -153,11 +157,23 @@ function Reader() {
               await patchAnnotation(params.journalId, Number(params.articleId), id, { status });
               await refresh();
             }}
+            canAnnotate={canAnnotate}
           />
         </div>
       )}
     </div>
   );
+}
+
+function pendingPosition(
+  pending: { pageNumber: number; selectedText: string; positionData: string } | null,
+): PositionData | null {
+  if (!pending) return null;
+  try {
+    return JSON.parse(pending.positionData) as PositionData;
+  } catch {
+    return null;
+  }
 }
 
 function normalizePdfError(message: string): string {

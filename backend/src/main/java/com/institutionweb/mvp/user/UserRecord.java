@@ -6,6 +6,7 @@ public record UserRecord(
         long id,
         String email,
         String displayName,
+        String affiliation,
         String passwordHash,
         String role,
         String status,

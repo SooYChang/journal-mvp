@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { getIssue, getJournal } from "@/lib/api/journals";
 import type { IssueDetail, JournalDetail } from "@/lib/api/types";
 import { errorMessage, formatDate } from "@/lib/utils";
 
 export default function IssuePage() {
   const params = useParams<{ journalId: string; issueId: string }>();
+  const { isAdmin } = useAuth();
   const [journal, setJournal] = useState<JournalDetail | null>(null);
   const [issue, setIssue] = useState<IssueDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +36,6 @@ export default function IssuePage() {
   return (
     <div>
       <nav className="breadcrumb">
-        <Link href="/journals">Journals</Link>
-        <span>/</span>
         <Link href={`/journals/${params.journalId}`}>{journal?.name ?? params.journalId}</Link>
         <span>/</span>
         <span>
@@ -63,6 +63,11 @@ export default function IssuePage() {
                 {article.authors.join(", ")}
                 {article.pages ? ` · pp. ${article.pages}` : ""}
               </p>
+              {isAdmin ? (
+                <p style={{ marginTop: 8 }}>
+                  <Link href={`/admin/journals/${params.journalId}/articles/${article.id}/edit`}>Edit article</Link>
+                </p>
+              ) : null}
             </article>
           ))}
         </div>

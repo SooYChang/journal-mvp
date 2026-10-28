@@ -19,7 +19,7 @@ public class DemoUserSeeder implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         seed("admin@example.com", "Local Administrator", "Admin1234!", "SOCIETY_ADMIN");
-        seed("member@example.com", "Local Member", "Member1234!", "MEMBER");
+        seed("member@example.com", "Local Member", "Member1234!", "ANNOTATOR");
     }
 
     private void seed(String email, String displayName, String password, String role) {
@@ -27,6 +27,6 @@ public class DemoUserSeeder implements ApplicationRunner {
             return;
         }
         Instant now = Instant.now();
-        users.insert(email, displayName, passwordEncoder.encode(password), role, "ACTIVE", now);
+        users.insert(email, displayName, null, passwordEncoder.encode(password), role, "ACTIVE", now);
     }
 }

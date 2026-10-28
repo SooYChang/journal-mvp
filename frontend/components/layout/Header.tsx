@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { getJournal } from "@/lib/api/journals";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -14,8 +15,28 @@ const LINKS = [
 
 export function Header() {
   const pathname = usePathname();
+  const journalId = pathname.match(/^\/journals\/([^/]+)/)?.[1] ?? null;
   const { user, isAuthenticated, isAdmin, logout, isLoading } = useAuth();
   const [open, setOpen] = useState(false);
+  const [journalName, setJournalName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!journalId) {
+      setJournalName(null);
+      return;
+    }
+    let cancelled = false;
+    void getJournal(journalId)
+      .then((journal) => {
+        if (!cancelled) setJournalName(journal.name);
+      })
+      .catch(() => {
+        if (!cancelled) setJournalName(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [journalId]);
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
@@ -30,8 +51,12 @@ export function Header() {
   return (
     <header className="site-header">
       <div className="header-inner">
-        <Link href="/" className="brand" onClick={() => setOpen(false)}>
-          Society Journals
+        <Link
+          href={journalId ? `/journals/${journalId}` : "/"}
+          className="brand"
+          onClick={() => setOpen(false)}
+        >
+          {journalId ? journalName ?? "Journal" : "Society Journals"}
         </Link>
         <button
           className="icon-button mobile-nav-toggle"
@@ -42,16 +67,18 @@ export function Header() {
           {open ? <X size={20} /> : <Menu size={20} />}
         </button>
         <nav className={`nav-links ${open ? "open" : ""}`} aria-label="Primary">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={isActive(link.href) ? "active" : undefined}
-              onClick={() => setOpen(false)}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {journalId
+            ? null
+            : LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={isActive(link.href) ? "active" : undefined}
+                  onClick={() => setOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
           {isAdmin ? (
             <Link
               href="/admin/members"
@@ -72,9 +99,14 @@ export function Header() {
                 </button>
               </>
             ) : (
-              <Link href="/login" onClick={() => setOpen(false)}>
-                Log in
-              </Link>
+              <>
+                <Link href="/join" onClick={() => setOpen(false)}>
+                  Register
+                </Link>
+                <Link href="/login" onClick={() => setOpen(false)}>
+                  Log in
+                </Link>
+              </>
             )}
           </div>
         </nav>

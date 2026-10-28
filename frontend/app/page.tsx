@@ -64,10 +64,10 @@ export default function HomePage() {
         <h1>{cover.title}</h1>
         <p>{cover.subtitle}</p>
         <div className="cta-row">
-          <Link className="button" href="/Repository">
+          <Link className="button" href="/repository">
             Browse Repository
           </Link>
-          <Link className="secondary-button" href="/Publications">
+          <Link className="secondary-button" href="/journals">
             Browse journals
           </Link>
           {!isAuthenticated ? (
@@ -101,8 +101,8 @@ export default function HomePage() {
       <section className="card" style={{ marginTop: 32 }}>
         <h2>For members</h2>
         <p className="muted">
-          Signed-in members can read uploaded PDFs and leave text annotations. Public visitors can browse metadata,
-          abstracts, and the global repository.
+          Signed-in readers can open PDFs and read annotations. Annotators can also leave notes. Public visitors can
+          browse metadata, abstracts, and the global repository.
         </p>
         {user ? <p className="success-text">Signed in as {user.displayName}.</p> : null}
       </section>

@@ -221,6 +221,52 @@ a:hover {
   gap: 24px;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.cover-lead {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.cover-facts {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.cover-facts div {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 0.4em;
+}
+
+.cover-facts dt {
+  font-weight: 700;
+}
+
+.cover-facts dd {
+  margin: 0;
+  font-weight: 400;
+}
+
+.cover-facts a {
+  text-decoration: underline;
+}
+
 .filter-panel label,
 .form-grid label {
   display: grid;
@@ -290,6 +336,67 @@ textarea {
 
 .serif {
   font-family: var(--font-serif);
+}
+
+.prose-block {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--font-serif);
+}
+
+#membership {
+  scroll-margin-top: 80px;
+}
+
+.about-block h2,
+.about-block h3,
+.section-label {
+  font-weight: 700;
+}
+
+.about-block h3 {
+  margin: 18px 0 6px;
+  font-size: 16px;
+}
+
+.fold {
+  margin-top: 18px;
+}
+
+.fold summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  list-style: none;
+}
+
+.fold summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold summary::marker {
+  content: "";
+}
+
+.fold summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid currentColor;
+}
+
+.fold[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.fold .prose-block {
+  margin-top: 6px;
 }
 
 .page-status,
@@ -370,27 +477,60 @@ td {
 .textLayer {
   position: absolute;
   inset: 0;
+  z-index: 1;
   overflow: hidden;
   line-height: 1;
-  opacity: 0.25;
+  opacity: 1;
+  text-align: initial;
+  transform-origin: 0 0;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
 }
 
-.textLayer span {
+.textLayer :is(span, br) {
+  color: transparent;
   position: absolute;
   white-space: pre;
-  color: transparent;
+  cursor: text;
   transform-origin: 0% 0%;
+}
+
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.textLayer .markedContent {
+  display: contents;
+}
+
+.pdf-page.ink-fallback .textLayer :is(span, br) {
+  color: #1a1a1a;
+}
+
+.textLayer ::selection {
+  background: rgb(255 214 0 / 80%);
 }
 
 .highlight-layer {
   position: absolute;
   inset: 0;
+  z-index: 2;
   pointer-events: none;
 }
 
 .highlight-rect {
   position: absolute;
-  background: rgb(64 89 170 / 28%);
+  background: rgb(255 214 0 / 70%);
+}
+
+.highlight-rect.is-pending,
+.highlight-rect.is-active {
+  background: rgb(255 145 0 / 78%);
 }
 
 .mobile-nav-toggle {

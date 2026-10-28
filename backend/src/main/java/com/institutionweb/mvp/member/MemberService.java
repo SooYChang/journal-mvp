@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class MemberService {
-    private static final Set<String> ROLES = Set.of("MEMBER", "SOCIETY_ADMIN");
+    private static final Set<String> ROLES = Set.of("READER", "ANNOTATOR", "SOCIETY_ADMIN");
     private static final Set<String> STATUSES = Set.of("ACTIVE", "SUSPENDED", "DEACTIVATED");
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
     private static final Pattern PASSWORD = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{10,}$");
@@ -63,7 +63,7 @@ public class MemberService {
             throw ApiException.validation(
                     "Password must be at least 10 characters and include a letter, a number, and a symbol.");
         }
-        String role = request.role() == null ? "MEMBER" : request.role();
+        String role = normalizeRole(request.role() == null ? "READER" : request.role());
         if (!ROLES.contains(role)) {
             throw ApiException.validation("Role is invalid.");
         }
@@ -71,7 +71,39 @@ public class MemberService {
             throw ApiException.conflict("duplicate_email", "A member with this email already exists.");
         }
         Instant now = Instant.now();
-        return toDto(users.insert(email, displayName, passwordEncoder.encode(password), role, "ACTIVE", now));
+        return toDto(users.insert(email, displayName, null, passwordEncoder.encode(password), role, "ACTIVE", now));
+    }
+
+    @Transactional
+    public UserRecord registerReader(String email, String displayName, String affiliation, String password) {
+        String normalizedEmail = TextSupport.requireText(email, "Email is required.").toLowerCase();
+        if (!EMAIL.matcher(normalizedEmail).matches()) {
+            throw ApiException.validation("Email is invalid.");
+        }
+        String name = TextSupport.requireText(displayName, "Name is required.");
+        if (name.length() > 120) {
+            throw ApiException.validation("Name must be 120 characters or fewer.");
+        }
+        String place = TextSupport.requireText(affiliation, "Affiliation is required.");
+        if (place.length() > 255) {
+            throw ApiException.validation("Affiliation must be 255 characters or fewer.");
+        }
+        String chosenPassword = TextSupport.requireText(password, "Password is required.");
+        if (!PASSWORD.matcher(chosenPassword).matches()) {
+            throw ApiException.validation(
+                    "Password must be at least 10 characters and include a letter, a number, and a symbol.");
+        }
+        if (users.existsByEmailIgnoreCase(normalizedEmail)) {
+            throw ApiException.conflict("duplicate_email", "A member with this email already exists.");
+        }
+        return users.insert(
+                normalizedEmail,
+                name,
+                place,
+                passwordEncoder.encode(chosenPassword),
+                "READER",
+                "ACTIVE",
+                Instant.now());
     }
 
     @Transactional(readOnly = true)
@@ -94,7 +126,7 @@ public class MemberService {
         if (displayName.length() > 120) {
             throw ApiException.validation("Display name must be 120 characters or fewer.");
         }
-        String role = request.role() == null ? existing.role() : request.role();
+        String role = normalizeRole(request.role() == null ? existing.role() : request.role());
         String status = request.status() == null ? existing.status() : request.status();
         if (!ROLES.contains(role)) {
             throw ApiException.validation("Role is invalid.");
@@ -134,11 +166,16 @@ public class MemberService {
         users.softDelete(userId, Instant.now());
     }
 
+    private static String normalizeRole(String role) {
+        return "MEMBER".equals(role) ? "ANNOTATOR" : role;
+    }
+
     private MemberDto toDto(UserRecord user) {
         return new MemberDto(
                 user.id(),
                 user.email(),
                 user.displayName(),
+                user.affiliation(),
                 user.role(),
                 user.status(),
                 user.createdAt(),
@@ -153,6 +190,7 @@ public class MemberService {
             long id,
             String email,
             String displayName,
+            String affiliation,
             String role,
             String status,
             Instant createdAt,

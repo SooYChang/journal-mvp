@@ -1,17 +1,51 @@
 import { ApiError } from "./errors";
 
 const DEFAULT_CSRF_COOKIE = "XSRF-TOKEN";
+const SESSION_STORAGE_KEY = "journal.sessionId";
 
 function apiBaseUrl(): string {
-  const value = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (!value) {
-    throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured.");
-  }
+  const value = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
   return value.replace(/\/$/, "");
 }
 
 function csrfCookieName(): string {
   return process.env.NEXT_PUBLIC_CSRF_COOKIE_NAME || DEFAULT_CSRF_COOKIE;
+}
+
+let memorySessionId: string | undefined;
+
+export function getStoredSessionId(): string | undefined {
+  if (memorySessionId) {
+    return memorySessionId;
+  }
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  try {
+    return window.sessionStorage.getItem(SESSION_STORAGE_KEY)
+      ?? window.localStorage.getItem(SESSION_STORAGE_KEY)
+      ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function setStoredSessionId(sessionId: string | null | undefined): void {
+  memorySessionId = sessionId || undefined;
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    if (sessionId) {
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+      window.localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+    } else {
+      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  } catch {
+    // Site data can be blocked on HTTP; in-memory session still covers this visit.
+  }
 }
 
 function readCookie(name: string): string | undefined {
@@ -63,6 +97,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (!headers.has("X-Requested-With")) {
     headers.set("X-Requested-With", "XMLHttpRequest");
   }
+  const sessionId = getStoredSessionId();
+  if (sessionId && !headers.has("X-Auth-Session")) {
+    headers.set("X-Auth-Session", sessionId);
+  }
+  if (sessionId && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${sessionId}`);
+  }
 
   let body = options.body ?? null;
   if (options.json !== undefined) {
@@ -71,13 +112,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
-    let token = readCookie(csrfCookieName());
-    if (!token) {
-      await ensureCsrfCookie();
-      token = readCookie(csrfCookieName());
-    }
+    await ensureCsrfCookie();
+    const token = readCookie(csrfCookieName());
     if (token) {
       headers.set("X-XSRF-TOKEN", token);
+      if (body instanceof FormData && !body.has("_csrf")) {
+        body.append("_csrf", token);
+      }
     }
   }
 
@@ -106,9 +147,15 @@ export function apiFileUrl(path: string): string {
 }
 
 export async function ensureCsrfCookie(): Promise<void> {
+  const headers = new Headers({ Accept: "application/json" });
+  const sessionId = getStoredSessionId();
+  if (sessionId) {
+    headers.set("X-Auth-Session", sessionId);
+    headers.set("Authorization", `Bearer ${sessionId}`);
+  }
   await fetch(`${apiBaseUrl()}/api/health`, {
     method: "GET",
     credentials: "include",
-    headers: { Accept: "application/json" },
+    headers,
   });
 }

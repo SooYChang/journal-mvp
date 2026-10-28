@@ -1,16 +1,28 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { fetchCurrentUser, login as loginRequest, logout as logoutRequest } from "@/lib/api/auth";
+import {
+  fetchCurrentUser,
+  login as loginRequest,
+  logout as logoutRequest,
+  registerReader as registerRequest,
+} from "@/lib/api/auth";
 import { isApiError } from "@/lib/api/errors";
-import type { User } from "@/lib/api/types";
+import { canAnnotate as userCanAnnotate, type User } from "@/lib/api/types";
 
 type AuthContextValue = {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  canAnnotate: boolean;
   login: (email: string, password: string) => Promise<User>;
+  registerReader: (payload: {
+    email: string;
+    displayName: string;
+    affiliation: string;
+    password: string;
+  }) => Promise<User>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -46,6 +58,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return next;
   }, []);
 
+  const registerReader = useCallback(
+    async (payload: { email: string; displayName: string; affiliation: string; password: string }) => {
+      const next = await registerRequest(payload);
+      setUser(next);
+      return next;
+    },
+    [],
+  );
+
   const logout = useCallback(async () => {
     try {
       await logoutRequest();
@@ -62,11 +83,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       isAuthenticated: Boolean(user),
       isAdmin: user?.role === "SOCIETY_ADMIN",
+      canAnnotate: userCanAnnotate(user?.role),
       login,
+      registerReader,
       logout,
       refresh,
     }),
-    [user, isLoading, login, logout, refresh],
+    [user, isLoading, login, registerReader, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

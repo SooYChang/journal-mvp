@@ -95,8 +95,6 @@ function BrowseInner() {
   return (
     <div>
       <nav className="breadcrumb">
-        <Link href="/journals">Journals</Link>
-        <span>/</span>
         <Link href={`/journals/${params.journalId}`}>{journal?.name ?? params.journalId}</Link>
         <span>/</span>
         <span>Articles</span>
@@ -177,6 +175,7 @@ function BrowseInner() {
             loading={loading}
             error={error}
             showJournal={false}
+            canEdit={isAdmin}
             onRetry={() => router.replace(`/journals/${params.journalId}/articles`)}
             onPageChange={(nextPage) => router.replace(href({ page: String(nextPage + 1) }, false))}
           />
